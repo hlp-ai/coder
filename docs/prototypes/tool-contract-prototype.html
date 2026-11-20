@@ -1,0 +1,730 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>原型 · v0 工具契约</title>
+<style>
+  :root {
+    --accent: #2563eb;
+    --ink: #1e293b;
+    --muted: #64748b;
+    --line: #e2e8f0;
+    --bg: #f8fafc;
+    --panel: #ffffff;
+    --bad: #b91c1c;
+    --good: #15803d;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 32px 24px 64px;
+    background: var(--bg);
+    color: var(--ink);
+    font: 15px/1.65 -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif;
+  }
+  .wrap { max-width: 1180px; margin: 0 auto; }
+  .tag {
+    display: inline-block;
+    padding: 3px 10px;
+    border: 1px solid var(--accent);
+    border-radius: 999px;
+    color: var(--accent);
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: .04em;
+  }
+  h1 { font-size: 26px; margin: 14px 0 8px; letter-spacing: -.01em; }
+  h2 { font-size: 16px; margin: 0 0 14px; }
+  .intro { max-width: 820px; color: var(--muted); margin: 0 0 26px; }
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 20px 22px;
+    margin-bottom: 18px;
+  }
+  .grid { display: grid; grid-template-columns: 1.1fr 1fr; gap: 18px; }
+  .field { margin-bottom: 16px; }
+  .field > .label {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    color: var(--muted);
+    margin-bottom: 4px;
+  }
+  .note {
+    padding: 10px 12px;
+    border-left: 3px solid var(--accent);
+    background: #eff6ff;
+    border-radius: 0 6px 6px 0;
+  }
+  pre {
+    margin: 0;
+    padding: 12px 14px;
+    background: #0f172a;
+    color: #e2e8f0;
+    border-radius: 8px;
+    overflow: auto;
+    max-height: 300px;
+    font: 12px/1.5 ui-monospace, SFMono-Regular, Consolas, monospace;
+  }
+  .badge {
+    display: inline-block;
+    padding: 2px 9px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+    background: #fee2e2;
+    color: var(--bad);
+  }
+  .badge.green { background: #dcfce7; color: var(--good); }
+  .badge.ok { background: #dcfce7; color: var(--good); }
+  .badge.err { background: #fee2e2; color: var(--bad); }
+  button {
+    font: inherit;
+    color: var(--ink);
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    padding: 7px 12px;
+    margin: 0 7px 7px 0;
+    cursor: pointer;
+  }
+  button:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+  button:disabled { opacity: .4; cursor: default; }
+  button.current { border-color: var(--accent); box-shadow: 0 0 0 2px #dbeafe; }
+  .tabs { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
+  .tabs button.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .tabs button.active:hover { color: #fff; }
+  .story { color: var(--muted); margin: 0 0 6px; }
+  .watch { margin: 0 0 12px; font-weight: 600; }
+  details { margin: 4px 0; }
+  summary { cursor: pointer; }
+  .files { list-style: none; padding: 0; margin: 0; }
+  .files li { padding: 2px 0; font: 12px/1.5 ui-monospace, Consolas, monospace; }
+  .hist { list-style: none; padding: 0; margin: 0; font-size: 13px; }
+  .hist li { padding: 2px 0; border-bottom: 1px dashed var(--line); }
+  .muted { color: var(--muted); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <span class="tag">PROTOTYPE · 一次性原型 · 不要合入 main</span>
+    <h1>v0 工具契约：按按钮，看契约在哪里硌手</h1>
+    <p class="intro">
+      这份原型要回答的问题是：<strong>v0 的六种工具接口契约长什么样，以及在什么情况下会硌手？</strong>
+      右侧是候选契约（JSON Schema、补丁格式、路径规则、截断策略、错误形态），左边是它的一个纯逻辑实现。
+      点「自由试」里的任意按钮可以直接戳模型；下面五个场景把难想清楚的边界情形排成了一条路。
+      每次操作后，状态面板都会显示完整的调用、结果和工作区，方便你说出「这里不该是这样」。
+    </p>
+  </header>
+
+  <section class="panel" id="state"></section>
+
+  <div class="grid">
+    <section class="panel">
+      <h2>自由试：直接派发一次工具调用</h2>
+      <div id="freeplay"></div>
+      <p class="muted">每次调用都用固定的示例参数，方便反复对照。工作区状态会一直累积，直到你切换一个场景。</p>
+    </section>
+    <section class="panel">
+      <h2>候选契约：模型看到的东西</h2>
+      <pre id="schemas"></pre>
+    </section>
+  </div>
+
+  <section class="panel">
+    <h2>引导式场景：按步骤走，观察契约的反应</h2>
+    <div class="tabs" id="tabs"></div>
+    <p class="story" id="story"></p>
+    <p class="watch" id="watch"></p>
+    <div id="steps"></div>
+    <button id="reset">重新开始这个场景</button>
+  </section>
+</div>
+
+<script>
+const ToolContract = (() => {
+  const ROOT = "/repo";
+  const LIMITS = { readLines: 200, headLines: 80, tailLines: 80, grepMatches: 50, commandChars: 4000 };
+
+  const PATH_RULES = {
+    form: "只接受绝对路径；相对路径直接拒绝",
+    normalization: "解析 . 与 ..，越出 /repo 即拒绝",
+    missing: "文件不存在返回 FILE_NOT_FOUND，不自动创建",
+    directories: "写操作不自动建目录"
+  };
+
+  const PATCH_FORMAT = {
+    shape: "patch = { search, replace }，展示为 SEARCH / REPLACE 块",
+    rule: "SEARCH 必须在目标文件中恰好匹配一次；0 次或多次都拒绝写入",
+    sample: "<<<<<<< SEARCH\n  return a - b;\n=======\n  return a + b;\n>>>>>>> REPLACE",
+    rationale: "唯一上下文把「改错地方」变成可恢复的协议错误，而不是静默事故"
+  };
+
+  const TRUNCATION_POLICY = {
+    read_file: "最多 200 行，保留前 80 行 + 后 80 行，中间标记省略行数并提示用 offset/limit 续读",
+    grep: "最多 50 条匹配，超出只报总数并提示缩小 glob 或 query",
+    run_command: "输出最多 4000 字符，保留头尾，标记省略字符数"
+  };
+
+  const ERROR_CODES = {
+    UNKNOWN_TOOL: { retryable: false, hint: "只使用列出的六种工具。" },
+    INVALID_ARGUMENT: { retryable: true, hint: "补齐或修正参数后重试。" },
+    PATH_NOT_ABSOLUTE: { retryable: true, hint: "改为 /repo/... 形式的绝对路径。" },
+    PATH_OUTSIDE_WORKSPACE: { retryable: false, hint: "工作区只到 /repo，不要访问外部路径。" },
+    FILE_NOT_FOUND: { retryable: true, hint: "先用列目录或 grep 确认实际路径。" },
+    PATCH_NO_MATCH: { retryable: true, hint: "重新读文件，把精确的原文放进 SEARCH。" },
+    PATCH_AMBIGUOUS: { retryable: true, hint: "把相邻上下文行并入 SEARCH，直到只匹配一处。" },
+    COMMAND_BLOCKED: { retryable: false, hint: "破坏性与联网命令一律拦截，换本地只读或测试命令。" }
+  };
+
+  const RESULT_SHAPE = {
+    success: { ok: true, tool: "read_file", data: {}, truncated: "可选：截断详情" },
+    failure: { ok: false, error: { code: "STRING", message: "STRING", retryable: "BOOLEAN", hint: "STRING", details: "OBJECT" } },
+    principle: "命令退出码非零不是工具错误，而是放在 data.exit_code 里的观察，供模型自行修正"
+  };
+
+  const SCHEMAS = {
+    read_file: {
+      description: "读取工作区内一个文本文件的片段",
+      input_schema: {
+        type: "object",
+        properties: {
+          path: { type: "string", pattern: "^/", description: "绝对路径，须位于 /repo 内" },
+          offset: { type: "integer", minimum: 0, default: 0, description: "起始行号，0 基" },
+          limit: { type: "integer", minimum: 1, maximum: 200, default: 200, description: "最多行数" }
+        },
+        required: ["path"],
+        additionalProperties: false
+      }
+    },
+    write_file: {
+      description: "创建或整体覆盖一个文件",
+      input_schema: {
+        type: "object",
+        properties: {
+          path: { type: "string", pattern: "^/", description: "绝对路径，须位于 /repo 内" },
+          content: { type: "string", description: "文件的完整新内容" }
+        },
+        required: ["path", "content"],
+        additionalProperties: false
+      }
+    },
+    edit_file: {
+      description: "用搜索替换补丁做局部编辑，SEARCH 必须唯一",
+      input_schema: {
+        type: "object",
+        properties: {
+          path: { type: "string", pattern: "^/", description: "绝对路径，须位于 /repo 内" },
+          patch: {
+            type: "object",
+            properties: {
+              search: { type: "string", description: "要替换的原文，必须在文件中恰好出现一次" },
+              replace: { type: "string", description: "替换后的文本" }
+            },
+            required: ["search", "replace"],
+            additionalProperties: false
+          }
+        },
+        required: ["path", "patch"],
+        additionalProperties: false
+      }
+    },
+    list_paths: {
+      description: "列出工作区内匹配 glob 的文件路径",
+      input_schema: {
+        type: "object",
+        properties: {
+          path: { type: "string", pattern: "^/", default: "/repo", description: "起始绝对路径" },
+          glob: { type: "string", description: "文件名通配，如 *.js" },
+          limit: { type: "integer", minimum: 1, maximum: 200, default: 200 }
+        },
+        required: [],
+        additionalProperties: false
+      }
+    },
+    grep: {
+      description: "在工作区内按字面串搜索，返回文件与行号",
+      input_schema: {
+        type: "object",
+        properties: {
+          query: { type: "string", description: "字面搜索串，不是正则" },
+          path: { type: "string", pattern: "^/", default: "/repo" },
+          glob: { type: "string", description: "限定文件名，如 *.js" },
+          limit: { type: "integer", minimum: 1, maximum: 50, default: 50 }
+        },
+        required: ["query"],
+        additionalProperties: false
+      }
+    },
+    run_command: {
+      description: "在项目根目录执行命令；命令行非零退出是观察，不是工具错误",
+      input_schema: {
+        type: "object",
+        properties: {
+          command: { type: "string", description: "要执行的命令" },
+          cwd: { type: "string", pattern: "^/", default: "/repo", description: "绝对路径工作目录" },
+          timeout_ms: { type: "integer", minimum: 100, maximum: 120000, default: 30000 }
+        },
+        required: ["command"],
+        additionalProperties: false
+      }
+    }
+  };
+
+  function fail(code, message, details) {
+    const spec = ERROR_CODES[code];
+    return {
+      ok: false,
+      error: {
+        code,
+        message,
+        retryable: spec.retryable,
+        hint: spec.hint,
+        details: details || {}
+      }
+    };
+  }
+
+  function ok(tool, data, truncated) {
+    const result = { ok: true, tool, data };
+    if (truncated) result.truncated = truncated;
+    return result;
+  }
+
+  function normalize(raw) {
+    const parts = [];
+    for (const seg of String(raw).split("/")) {
+      if (seg === "" || seg === ".") continue;
+      if (seg === "..") { parts.pop(); continue; }
+      parts.push(seg);
+    }
+    return "/" + parts.join("/");
+  }
+
+  function resolvePath(raw) {
+    if (typeof raw !== "string" || !raw.startsWith("/")) {
+      return fail("PATH_NOT_ABSOLUTE", "只接受 /repo/... 这样的绝对路径，收到：" + String(raw), { received: raw });
+    }
+    const path = normalize(raw);
+    if (path !== ROOT && !path.startsWith(ROOT + "/")) {
+      return fail("PATH_OUTSIDE_WORKSPACE", "路径越出工作区 /repo：" + path, { resolved: path, root: ROOT });
+    }
+    return { ok: true, path };
+  }
+
+  function truncateLines(lines, head, tail, extra) {
+    if (lines.length <= head + tail) return { lines, truncation: null };
+    const omitted = lines.length - head - tail;
+    return {
+      lines: lines.slice(0, head).concat(["… 省略 " + omitted + " 行 …"], lines.slice(-tail)),
+      truncation: Object.assign({ omitted_lines: omitted, strategy: "head+tail", resume_hint: "用 offset/limit 读取被省略的区间" }, extra || {})
+    };
+  }
+
+  function truncateChars(text, max) {
+    if (text.length <= max) return { text, truncation: null };
+    const head = Math.floor(max / 2);
+    const tail = max - head;
+    const omitted = text.length - max;
+    return {
+      text: text.slice(0, head) + "\n… 省略 " + omitted + " 字符 …\n" + text.slice(-tail),
+      truncation: { omitted_chars: omitted, strategy: "head+tail" }
+    };
+  }
+
+  function globMatch(name, glob) {
+    if (!glob) return true;
+    const re = new RegExp("^" + glob.replace(/[.+^${}()|[\]\\]/g, "\\$&").replace(/\*/g, ".*") + "$");
+    return re.test(name);
+  }
+
+  function initialWorkspace() {
+    const longLines = [];
+    for (let i = 1; i <= 240; i++) {
+      longLines.push("item-" + String(i).padStart(3, "0") + (i % 37 === 0 ? "  TODO inspect" : "  ok"));
+    }
+    return {
+      "/repo/src/calc.js": "export function add(a, b) {\n  return a - b;\n}\n",
+      "/repo/src/legacy.js": "function bump(x) {\n  return x;\n}\nfunction bump2(x) {\n  return x;\n}\n",
+      "/repo/src/util.js": "export const noop = () => {};\n",
+      "/repo/test/calc.test.js": "import { add } from '../src/calc.js';\nconsole.assert(add(1, 2) === 3, 'add(1,2) should be 3');\n",
+      "/repo/docs/generated-long.txt": longLines.join("\n") + "\n",
+      "/repo/README.md": "# demo repo\nnpm test 运行验收测试\n"
+    };
+  }
+
+  function initialState() {
+    return {
+      workspace: initialWorkspace(),
+      lastCall: null,
+      lastResult: null,
+      history: [],
+      test: "红（基线）",
+      notice: "初始状态：加法写成了减法，验收测试为红。"
+    };
+  }
+
+  function withResult(state, action, result, workspace, notice, test) {
+    return {
+      workspace: workspace || state.workspace,
+      lastCall: { tool: action.tool, args: action.args },
+      lastResult: result,
+      history: state.history.concat([{
+        tool: action.tool,
+        ok: result.ok,
+        code: result.ok ? null : result.error.code
+      }]),
+      test: test === undefined ? state.test : test,
+      notice: notice || (result.ok ? "调用成功。" : "调用被契约拒绝，工作区未改动。")
+    };
+  }
+
+  function reduce(state, action) {
+    const tool = action.tool;
+    const args = action.args || {};
+    const rejected = (result, notice) => withResult(state, action, result, null, notice);
+
+    if (!Object.prototype.hasOwnProperty.call(SCHEMAS, tool)) {
+      return rejected(fail("UNKNOWN_TOOL", "没有这个工具：" + String(tool), { received: tool }));
+    }
+    const required = SCHEMAS[tool].input_schema.required;
+    const missing = required.filter(function (key) { return !(key in args); });
+    if (missing.length) {
+      return rejected(fail("INVALID_ARGUMENT", "缺少必填参数：" + missing.join(", "), { missing }));
+    }
+
+    if (tool === "read_file") {
+      const p = resolvePath(args.path);
+      if (!p.ok) return rejected(p);
+      const text = state.workspace[p.path];
+      if (text === undefined) return rejected(fail("FILE_NOT_FOUND", "文件不存在：" + p.path, { path: p.path }));
+      const lines = text.split("\n");
+      const offset = args.offset || 0;
+      const pool = lines.slice(offset, offset + (args.limit || LIMITS.readLines));
+      const t = truncateLines(pool, LIMITS.headLines, LIMITS.tailLines);
+      return withResult(state, action, ok("read_file", {
+        path: p.path,
+        offset,
+        total_lines: lines.length,
+        content: t.lines.join("\n")
+      }, t.truncation), null, t.truncation ? "文件太大，只返回头尾两段。" : "文件已读入上下文。");
+    }
+
+    if (tool === "write_file") {
+      const p = resolvePath(args.path);
+      if (!p.ok) return rejected(p);
+      const ws = Object.assign({}, state.workspace);
+      ws[p.path] = args.content;
+      return withResult(state, action, ok("write_file", {
+        path: p.path,
+        bytes: args.content.length,
+        created: !(p.path in state.workspace)
+      }), ws, "文件已整体写入：" + p.path);
+    }
+
+    if (tool === "edit_file") {
+      const p = resolvePath(args.path);
+      if (!p.ok) return rejected(p);
+      const text = state.workspace[p.path];
+      if (text === undefined) return rejected(fail("FILE_NOT_FOUND", "文件不存在：" + p.path, { path: p.path }));
+      const patch = args.patch || {};
+      if (!patch.search) {
+        return rejected(fail("INVALID_ARGUMENT", "SEARCH 不能为空", { missing: ["patch.search"] }));
+      }
+      const count = text.split(patch.search).length - 1;
+      if (count === 0) {
+        return rejected(fail("PATCH_NO_MATCH", "SEARCH 在文件中没有匹配", { path: p.path, search: patch.search }));
+      }
+      if (count > 1) {
+        return rejected(fail("PATCH_AMBIGUOUS", "SEARCH 匹配了 " + count + " 处，必须唯一", {
+          path: p.path,
+          occurrences: count
+        }), "补丁被拒绝：上下文不唯一，文件一个字都没改。");
+      }
+      const ws = Object.assign({}, state.workspace);
+      ws[p.path] = text.replace(patch.search, patch.replace || "");
+      return withResult(state, action, ok("edit_file", {
+        path: p.path,
+        occurrences: 1,
+        patch: "<<<<<<< SEARCH\n" + patch.search + "\n=======\n" + (patch.replace || "") + "\n>>>>>>> REPLACE"
+      }), ws, "唯一匹配，已替换 1 处。");
+    }
+
+    if (tool === "list_paths") {
+      const p = resolvePath(args.path || ROOT);
+      if (!p.ok) return rejected(p);
+      const prefix = p.path === ROOT ? ROOT + "/" : p.path + "/";
+      const found = Object.keys(state.workspace)
+        .filter(function (path) { return path.startsWith(prefix) && globMatch(path.split("/").pop(), args.glob); })
+        .map(function (path) { return path.slice(ROOT.length + 1); })
+        .sort();
+      const t = truncateLines(found, 100, 100, { unit: "paths" });
+      return withResult(state, action, ok("list_paths", {
+        root: p.path,
+        glob: args.glob || null,
+        total: found.length,
+        paths: t.lines
+      }, t.truncation), null, "列出 " + found.length + " 个文件路径。");
+    }
+
+    if (tool === "grep") {
+      const p = resolvePath(args.path || ROOT);
+      if (!p.ok) return rejected(p);
+      const prefix = p.path === ROOT ? ROOT + "/" : p.path + "/";
+      const matches = [];
+      Object.keys(state.workspace).forEach(function (path) {
+        if (!path.startsWith(prefix)) return;
+        if (!globMatch(path.split("/").pop(), args.glob)) return;
+        state.workspace[path].split("\n").forEach(function (line, i) {
+          if (line.indexOf(args.query) !== -1) {
+            matches.push({ path: path.slice(ROOT.length + 1), line: i + 1, text: line.trim() });
+          }
+        });
+      });
+      const cap = args.limit || LIMITS.grepMatches;
+      const shown = matches.slice(0, cap);
+      const truncation = matches.length > cap
+        ? { omitted_matches: matches.length - cap, strategy: "first N", resume_hint: "缩小 glob 或换更精确的 query" }
+        : null;
+      return withResult(state, action, ok("grep", {
+        query: args.query,
+        total_matches: matches.length,
+        matches: shown
+      }, truncation), null, "找到 " + matches.length + " 条匹配" + (truncation ? "，只回传前 " + cap + " 条。" : "。"));
+    }
+
+    if (tool === "run_command") {
+      const command = args.command;
+      const blocked = ["rm -rf", "git push", "sudo", "curl", "wget", "ssh"];
+      const hit = blocked.filter(function (word) { return command.indexOf(word) !== -1; });
+      if (hit.length) {
+        return rejected(fail("COMMAND_BLOCKED", "命令命中拦截词：" + hit.join(", "), {
+          command,
+          matched: hit
+        }), "命令没有执行：破坏性/联网动作在契约层被拦截。");
+      }
+      if (command === "npm test") {
+        const green = (state.workspace["/repo/src/calc.js"] || "").indexOf("return a + b;") !== -1;
+        const raw = green
+          ? "PASS test/calc.test.js\n1 passing (12ms)\n"
+          : "FAIL test/calc.test.js\nExpected: 3\nReceived: 1\n1 failing\n";
+        const t = truncateChars(raw, LIMITS.commandChars);
+        return withResult(state, action, ok("run_command", {
+          command,
+          exit_code: green ? 0 : 1,
+          stdout: t.text,
+          stderr: green ? "" : "AssertionError: add(1,2) should be 3"
+        }, t.truncation), null,
+          green ? "测试由红转绿。" : "命令退出码 1，失败当作观察回填，不是工具错误。",
+          green ? "绿" : "红");
+      }
+      if (command === "npm run report") {
+        const raw = Array.from({ length: 260 }, function (_, i) {
+          return "report line " + (i + 1) + ": " + "x".repeat(i % 23);
+        }).join("\n");
+        const t = truncateChars(raw, LIMITS.commandChars);
+        return withResult(state, action, ok("run_command", {
+          command,
+          exit_code: 0,
+          stdout: t.text,
+          stderr: ""
+        }, t.truncation), null, "输出超长，头尾保留，中间标记省略。");
+      }
+      return withResult(state, action, ok("run_command", {
+        command,
+        exit_code: 0,
+        stdout: "执行完成：" + command,
+        stderr: ""
+      }), null, "命令已执行。");
+    }
+  }
+
+  return {
+    ROOT,
+    SCHEMAS,
+    PATH_RULES,
+    PATCH_FORMAT,
+    TRUNCATION_POLICY,
+    ERROR_CODES,
+    RESULT_SHAPE,
+    initialState,
+    reduce
+  };
+})();
+
+const A = {
+  readCalc: { label: "读 calc.js", tool: "read_file", args: { path: "/repo/src/calc.js" } },
+  readLong: { label: "读长文件（截断）", tool: "read_file", args: { path: "/repo/docs/generated-long.txt" } },
+  writeUtil: { label: "整体写文件", tool: "write_file", args: { path: "/repo/src/util.js", content: "export const noop = () => {};\n" } },
+  editFix: { label: "局部编辑（唯一）", tool: "edit_file", args: { path: "/repo/src/calc.js", patch: { search: "  return a - b;", replace: "  return a + b;" } } },
+  editAmbiguous: { label: "局部编辑（歧义）", tool: "edit_file", args: { path: "/repo/src/legacy.js", patch: { search: "  return x;", replace: "  return x + 1;" } } },
+  editContext: { label: "局部编辑（带上下文）", tool: "edit_file", args: { path: "/repo/src/legacy.js", patch: { search: "function bump(x) {\n  return x;\n}", replace: "function bump(x) {\n  return x + 1;\n}" } } },
+  list: { label: "列目录 *.js", tool: "list_paths", args: { path: "/repo", glob: "*.js" } },
+  grep: { label: "grep TODO", tool: "grep", args: { query: "TODO", path: "/repo" } },
+  test: { label: "跑测试", tool: "run_command", args: { command: "npm test" } },
+  report: { label: "跑长输出命令", tool: "run_command", args: { command: "npm run report" } },
+  blocked: { label: "危险命令", tool: "run_command", args: { command: "rm -rf /repo" } },
+  relative: { label: "相对路径写文件", tool: "write_file", args: { path: "src/calc.js", content: "oops" } },
+  outside: { label: "工作区外读文件", tool: "read_file", args: { path: "/etc/passwd" } },
+  missing: { label: "不存在的文件", tool: "read_file", args: { path: "/repo/src/missing.js" } },
+  unknown: { label: "不存在的工具", tool: "delete_everything", args: {} },
+  noContent: { label: "缺参数写文件", tool: "write_file", args: { path: "/repo/src/util.js" } }
+};
+
+const SCENARIOS = [
+  {
+    title: "① 红转绿",
+    story: "最短的闭环：读源码，改一处，跑验收测试。",
+    watch: "看测试状态从红变绿；注意失败的命令是正常结果，不是工具错误。",
+    steps: [A.readCalc, A.editFix, A.test]
+  },
+  {
+    title: "② 补丁必须唯一",
+    story: "legacy.js 里有两个一模一样的 return x;，模型想改第一个。",
+    watch: "第一次补丁应被拒绝且文件一字未改；加上函数头作上下文后才放行。",
+    steps: [A.editAmbiguous, A.editContext]
+  },
+  {
+    title: "③ 路径与越界",
+    story: "模型写了相对路径，又试探工作区外的文件，最后读一个不存在的文件。",
+    watch: "三种错误的可恢复性不同：相对路径可自纠，越界不可重试，文件不存在要先查路径。",
+    steps: [A.relative, A.outside, A.missing]
+  },
+  {
+    title: "④ 输出截断",
+    story: "读一个大文件、grep 一个常见词、再跑一条输出很长的命令。",
+    watch: "看 head+tail 是否留住了上下文边界，以及截断提示能否让模型知道怎么续读。",
+    steps: [A.readLong, A.grep, A.report]
+  },
+  {
+    title: "⑤ 不该发生的事",
+    story: "模型发明了一个工具、发了一条破坏性命令、又漏掉了必填参数。",
+    watch: "看协议错误如何把「不能做」和「做错了」区分开；工作区应保持原样。",
+    steps: [A.unknown, A.blocked, A.noContent]
+  }
+];
+
+let state = ToolContract.initialState();
+let active = 0;
+let stepIndex = 0;
+
+function esc(value) {
+  return String(value).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+function pretty(value) {
+  return esc(JSON.stringify(value, null, 2));
+}
+
+function dispatch(action) {
+  state = ToolContract.reduce(state, { tool: action.tool, args: action.args });
+  renderState();
+  renderScenario();
+}
+
+function renderState() {
+  const result = state.lastResult;
+  const badge = result
+    ? result.ok
+      ? '<span class="badge ok">成功</span>'
+      : '<span class="badge err">' + esc(result.error.code) + '</span>'
+    : '<span class="muted">还没有调用</span>';
+  const testBadge = state.test === "绿"
+    ? '<span class="badge green">' + esc(state.test) + '</span>'
+    : '<span class="badge">' + esc(state.test) + '</span>';
+  const files = Object.keys(state.workspace).map(function (path) {
+    return '<li><details><summary>' + esc(path) + ' · ' + state.workspace[path].length + ' 字符</summary><pre>' + esc(state.workspace[path]) + '</pre></details></li>';
+  }).join("");
+  const history = state.history.length
+    ? state.history.map(function (h, i) {
+      return '<li>' + (i + 1) + '. ' + esc(h.tool) + ' — ' + (h.ok ? '成功' : '<span style="color:var(--bad)">' + esc(h.code) + '</span>') + '</li>';
+    }).join("")
+    : '<li class="muted">空</li>';
+
+  document.getElementById("state").innerHTML =
+    '<h2>当前状态（每次操作后重画）</h2>' +
+    '<div class="field"><div class="label">验收测试</div>' + testBadge + '</div>' +
+    '<div class="field"><div class="label">刚刚发生</div><div class="note">' + esc(state.notice) + '</div></div>' +
+    '<div class="grid">' +
+      '<div><div class="field"><div class="label">最近一次调用 ' + badge + '</div><pre>' + pretty(state.lastCall) + '</pre></div>' +
+      '<div class="field"><div class="label">最近一次结果</div><pre>' + pretty(result) + '</pre></div></div>' +
+      '<div><div class="field"><div class="label">工作区文件</div><ul class="files">' + files + '</ul></div>' +
+      '<div class="field"><div class="label">调用历史 · ' + state.history.length + ' 次</div><ul class="hist">' + history + '</ul></div></div>' +
+    '</div>';
+}
+
+function renderFreePlay() {
+  document.getElementById("freeplay").innerHTML = Object.keys(A).map(function (key) {
+    const action = A[key];
+    return '<button data-free="' + esc(key) + '">' + esc(action.label) + '</button>';
+  }).join("");
+  document.querySelectorAll("[data-free]").forEach(function (button) {
+    button.addEventListener("click", function () { dispatch(A[button.getAttribute("data-free")]); });
+  });
+}
+
+function renderSchemas() {
+  document.getElementById("schemas").textContent = JSON.stringify({
+    tools: ToolContract.SCHEMAS,
+    result_shape: ToolContract.RESULT_SHAPE,
+    error_codes: ToolContract.ERROR_CODES,
+    patch_format: ToolContract.PATCH_FORMAT,
+    path_rules: ToolContract.PATH_RULES,
+    truncation: ToolContract.TRUNCATION_POLICY
+  }, null, 2);
+}
+
+function renderTabs() {
+  document.getElementById("tabs").innerHTML = SCENARIOS.map(function (scenario, i) {
+    return '<button data-tab="' + i + '" class="' + (i === active ? 'active' : '') + '">' + esc(scenario.title) + '</button>';
+  }).join("");
+  document.querySelectorAll("[data-tab]").forEach(function (button) {
+    button.addEventListener("click", function () {
+      active = Number(button.getAttribute("data-tab"));
+      stepIndex = 0;
+      state = ToolContract.initialState();
+      renderState();
+      renderTabs();
+      renderScenario();
+    });
+  });
+}
+
+function renderScenario() {
+  const scenario = SCENARIOS[active];
+  document.getElementById("story").textContent = scenario.story;
+  document.getElementById("watch").textContent = "要盯住：" + scenario.watch;
+  document.getElementById("steps").innerHTML = scenario.steps.map(function (action, i) {
+    const disabled = i !== stepIndex ? " disabled" : "";
+    const current = i === stepIndex ? " current" : "";
+    return '<button data-step="' + i + '"' + disabled + current + '>' + esc(action.label) + '</button>';
+  }).join("");
+  document.querySelectorAll("[data-step]").forEach(function (button) {
+    button.addEventListener("click", function () {
+      const i = Number(button.getAttribute("data-step"));
+      if (i !== stepIndex) return;
+      dispatch(scenario.steps[i]);
+      stepIndex = Math.min(stepIndex + 1, scenario.steps.length);
+      renderScenario();
+    });
+  });
+}
+
+renderState();
+renderFreePlay();
+renderSchemas();
+renderTabs();
+renderScenario();
+document.getElementById("reset").addEventListener("click", function () {
+  stepIndex = 0;
+  state = ToolContract.initialState();
+  renderState();
+  renderScenario();
+});
+</script>
+</body>
+</html>
