@@ -1,0 +1,318 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>原型 · v0 上下文骨架</title>
+<style>
+  :root {
+    --accent: #2563eb;
+    --ink: #1e293b;
+    --muted: #64748b;
+    --line: #e2e8f0;
+    --bg: #f8fafc;
+    --panel: #ffffff;
+    --stable: #1d4ed8;
+    --stable-bg: #eff6ff;
+    --volatile: #b45309;
+    --volatile-bg: #fffbeb;
+    --task: #6d28d9;
+    --task-bg: #f5f3ff;
+    --obs: #0f766e;
+    --obs-bg: #f0fdfa;
+    --bad: #b91c1c;
+    --good: #15803d;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 32px 24px 80px;
+    background: var(--bg);
+    color: var(--ink);
+    font: 15px/1.65 -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif;
+  }
+  .wrap { max-width: 1240px; margin: 0 auto; }
+  .tag {
+    display: inline-block; padding: 3px 10px; border: 1px solid var(--accent);
+    border-radius: 999px; color: var(--accent); font-size: 12px; font-weight: 600;
+    letter-spacing: .04em;
+  }
+  h1 { font-size: 26px; margin: 14px 0 8px; letter-spacing: -.01em; }
+  h2 { font-size: 16px; margin: 0 0 12px; }
+  .intro { max-width: 880px; color: var(--muted); margin: 0 0 8px; }
+  .question {
+    max-width: 880px; margin: 12px 0 26px; padding: 12px 16px;
+    border-left: 3px solid var(--accent); background: var(--stable-bg); border-radius: 0 6px 6px 0;
+  }
+  .question b { color: var(--accent); }
+  .panel {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+    padding: 18px 20px; margin-bottom: 18px;
+  }
+  .grid { display: grid; grid-template-columns: 1fr 1.35fr; gap: 18px; align-items: start; }
+  .legend { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0 0; }
+  .chip { font-size: 12px; padding: 3px 10px; border-radius: 999px; font-weight: 600; }
+  .chip.stable { background: var(--stable-bg); color: var(--stable); }
+  .chip.volatile { background: var(--volatile-bg); color: var(--volatile); }
+  .chip.task { background: var(--task-bg); color: var(--task); }
+  .chip.obs { background: var(--obs-bg); color: var(--obs); }
+  button {
+    font: inherit; padding: 8px 14px; margin: 0 8px 8px 0; border-radius: 7px;
+    border: 1px solid var(--line); background: #fff; color: var(--ink); cursor: pointer;
+  }
+  button:hover { border-color: var(--accent); color: var(--accent); }
+  button.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+  button.primary:hover { background: #1d4ed8; color: #fff; }
+  button:disabled { opacity: .45; cursor: not-allowed; }
+  .tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+  .tabs button.active { background: var(--ink); color: #fff; border-color: var(--ink); }
+  .scenario { font-size: 13px; color: var(--muted); min-height: 42px; }
+  .stepbtn {
+    display: inline-block; font: 12px ui-monospace, monospace; padding: 2px 8px; margin: 3px 4px 3px 0;
+    border-radius: 5px; border: 1px solid var(--line); background: #fff; cursor: pointer;
+  }
+  .turnhead {
+    font-size: 12px; font-weight: 700; letter-spacing: .05em; color: var(--muted);
+    text-transform: uppercase; margin: 4px 0 6px;
+  }
+  .ctx { display: flex; flex-direction: column; gap: 6px; }
+  .block { border-radius: 7px; padding: 9px 12px; border: 1px solid var(--line); }
+  .block .bh {
+    font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
+    margin-bottom: 4px; display: flex; justify-content: space-between; gap: 10px;
+  }
+  .block.stable { background: var(--stable-bg); border-color: #bfdbfe; }
+  .block.stable .bh { color: var(--stable); }
+  .block.task { background: var(--task-bg); border-color: #ddd6fe; }
+  .block.task .bh { color: var(--task); }
+  .block.obs { background: var(--obs-bg); border-color: #99f6e4; }
+  .block.obs .bh { color: var(--obs); }
+  .block.preview { border-style: dashed; opacity: .55; }
+  .block .body { font: 12px/1.55 ui-monospace, SFMono-Regular, Consolas, monospace; white-space: pre-wrap; word-break: break-word; }
+  .block .body.dim { color: var(--muted); }
+  .prefix-rule {
+    margin: 10px 0 0; padding: 10px 12px; border: 1px dashed var(--stable);
+    border-radius: 7px; font-size: 13px; color: var(--stable);
+  }
+  .stats { display: flex; gap: 18px; flex-wrap: wrap; font-size: 13px; color: var(--muted); }
+  .stats b { color: var(--ink); }
+  .verdict {
+    margin-top: 10px; padding: 10px 14px; border-left: 3px solid var(--good);
+    background: #f0fdf4; border-radius: 0 6px 6px 0; font-size: 13px;
+  }
+  code { font-family: ui-monospace, Consolas, monospace; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <span class="tag">THROWAWAY PROTOTYPE · 仅供讨论反应</span>
+  <h1>原型 · v0 上下文骨架（一次红转绿任务）</h1>
+  <p class="intro">把模型在一次「修复失败单测、红转绿」任务中<strong>实际看到的完整上下文</strong>逐轮摊开。点「推进一轮」或跑引导场景，观察上下文如何增长，以及稳定前缀与易变部分的边界落在哪里。</p>
+  <div class="question">
+    <b>要回答的问题：</b>完整上下文骨架如何组织？系统提示如何分段、工具定义摆在哪、`AGENTS.md` 注入在哪、失败观察如何回填、稳定前缀与易变部分的边界在哪。
+    <br><span style="font-size:12px;color:var(--muted)">假设：形态为一次性 CLI 任务 + 结构化工具调用，能力边界遵循 ADR 0001。工具细节见「工具契约」原型，此处只关心上下文的组织与流向。</span>
+  </div>
+
+  <div class="grid">
+    <div>
+      <div class="panel">
+        <h2>控制</h2>
+        <button id="advance" class="primary">推进一轮 ▸</button>
+        <button id="reset">重置</button>
+        <div class="stats" style="margin-top:12px">
+          <span>轮次 <b id="turnN">0</b></span>
+          <span>上下文块 <b id="blockN">0</b></span>
+          <span>稳定前缀 <b id="stableN">0</b> 块</span>
+        </div>
+        <div class="verdict" id="verdict">先看引导场景，再回来点自由推进。</div>
+      </div>
+
+      <div class="panel">
+        <h2>引导场景</h2>
+        <div class="tabs" id="tabs">
+          <button data-s="happy">红转绿（顺利）</button>
+          <button data-s="toolerr">工具失败回填</button>
+          <button data-s="testerr">测试失败回填</button>
+        </div>
+        <div class="scenario" id="scenario">选一个场景，按提示逐个点击按钮。</div>
+        <div id="steps"></div>
+      </div>
+
+      <div class="panel">
+        <h2>图例</h2>
+        <div class="legend">
+          <span class="chip stable">稳定前缀（可缓存）</span>
+          <span class="chip task">任务描述</span>
+          <span class="chip obs">观察 / 回填</span>
+          <span class="chip volatile">易变（每轮追加）</span>
+        </div>
+        <div class="prefix-rule" id="prefixRule">前缀边界：位于「任务描述」及其之前的内容跨轮不变 → 可整体缓存；任务描述之后的每一轮工具往返 → 追加进易变区。</div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>模型此刻看到的完整上下文</h2>
+      <div class="turnhead" id="turnLabel">起始 · 尚未进入循环</div>
+      <div class="ctx" id="ctx"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  var SYSTEM = [
+    { kind: "stable", head: "系统提示 · 1/4 角色", body: "你是编码智能体 coder。在限定工作区内读取、修改、验证代码。一次性任务，完成即退出。" },
+    { kind: "stable", head: "系统提示 · 2/4 工作方式", body: "先定位再修改；改动后运行测试验证；无法继续时说明原因并停止。" },
+    { kind: "stable", head: "系统提示 · 3/4 工具指引", body: "路径用绝对路径。编辑用搜索替换补丁（带唯一上下文）。命令输出会被截断。" },
+    { kind: "stable", head: "系统提示 · 4/4 输出约定", body: "结束时输出：变更清单 + 验证结果摘要。不自动提交。" },
+    { kind: "stable", head: "工具定义（工具契约原型）", body: "[read_file, list_dir, grep, edit_file, run_cmd]\n每个工具：name / description / inputSchema(JSON Schema)。稳定、无重叠。" },
+    { kind: "stable", head: "AGENTS.md 前置注入", body: "（启动读取项目 AGENTS.md，原样注入在此）\n# 项目约定\n- 测试命令: npm test\n- 代码风格: ..." }
+  ];
+
+  var TASK = { kind: "task", head: "任务描述（用户 · 一次性，任务内不变）", body: "修复 tests/foo.test.ts 的失败单测，让 npm test 由红转绿。只改必要文件。" };
+
+  function obsBlock(text) { return { kind: "obs", head: "观察回填（上一轮动作的结果）", body: text }; }
+
+  // Each turn: the new observation appended (or null for the initial turn), and a one-line state note.
+  var TURNS = [
+    { new: null, note: "循环尚未开始：只装配稳定前缀 + 任务，第一次推理即将发生。" },
+    { new: obsBlock("read_file(tests/foo.test.ts) →\n  期望 foo(2)=4，实际 foo(2)=2\n  断言位置: 第 12 行"), note: "模型读了失败测试，观察回填，进入下一轮推理。" },
+    { new: obsBlock("edit_file(src/foo.ts) → ok\n  foo(x) = x * x  (原 x + x)"), note: "模型改了代码，编辑结果作为观察回填。" },
+    { new: obsBlock("run_cmd(npm test) → 退出码 0\n  ✓ foo.test.ts (1 passed)\n  测试由红转绿"), note: "测试通过 → 满足终止条件，输出变更清单与验证摘要。" }
+  ];
+
+  // Scenario step sequences, expressed as turn indices to land on plus narration.
+  var SCENARIOS = {
+    happy: {
+      text: "顺利路径：读失败测试 → 定位并修改 → 跑测试转绿。观察正常回填。",
+      steps: [
+        { t: 0, label: "0 · 初始上下文" },
+        { t: 1, label: "1 · 读测试后回填" },
+        { t: 2, label: "2 · 编辑后回填" },
+        { t: 3, label: "3 · 测试转绿 → 停止" }
+      ]
+    },
+    toolerr: {
+      text: "工具失败：模型用了错误路径，工具返回结构化错误，作为观察回填，让模型自我修正。",
+      steps: [
+        { t: 0, label: "0 · 初始上下文" },
+        { t: 1, label: "1 · 工具失败回填 ↓", override: obsBlock("read_file(src/foo.ts) → ✗ ENOENT\n  错误类型: path_not_found\n  提示: 文件不存在，列出目录以确认路径") },
+        { t: 2, label: "2 · 模型据错误改用正确路径", override: obsBlock("read_file(src/foo.js) → ok\n  foo(x) = x + x") },
+        { t: 3, label: "3 · 修正后测试转绿", override: obsBlock("run_cmd(npm test) → 退出码 0\n  ✓ foo.test.ts (1 passed)") }
+      ]
+    },
+    testerr: {
+      text: "测试失败回填：第一次修改后测试仍红，失败输出原样回填，模型据此再改一轮。",
+      steps: [
+        { t: 0, label: "0 · 初始上下文" },
+        { t: 1, label: "1 · 读测试后回填", override: TURNS[1].new },
+        { t: 2, label: "2 · 测试仍红 → 失败输出回填", override: obsBlock("run_cmd(npm test) → 退出码 1\n  ✗ foo.test.ts\n    expected 4, got 2  (第 12 行)\n  1 failed") },
+        { t: 3, label: "3 · 再改一次后转绿", override: obsBlock("edit + run_cmd → ok\n  ✓ foo.test.ts (1 passed)") }
+      ]
+    }
+  };
+
+  var state = { turn: 0, obs: [], scenario: null, step: 0 };
+
+  var $ = function (id) { return document.getElementById(id); };
+
+  function render() {
+    var ctx = $("ctx");
+    ctx.innerHTML = "";
+
+    function addBlock(b, preview) {
+      var el = document.createElement("div");
+      el.className = "block " + b.kind + (preview ? " preview" : "");
+      var h = '<div class="bh"><span>' + b.head + "</span></div>";
+      var body = b.body.split("\n").map(function (l) {
+        return '<div class="' + (l.indexOf("（") === 0 ? "dim" : "") + '">' + esc(l) + "</div>";
+      }).join("");
+      el.innerHTML = h + '<div class="body">' + body + "</div>";
+      ctx.appendChild(el);
+    }
+
+    SYSTEM.forEach(function (b) { addBlock(b, false); });
+    addBlock(TASK, false);
+    state.obs.forEach(function (b) { addBlock(b, false); });
+
+    // Preview next observation slot to make the volatile boundary tangible.
+    if (state.turn < 3) {
+      addBlock({ kind: "obs", head: "下一轮的观察将追加在这里（易变区）", body: "（随工具往返增长；不进稳定前缀）" }, true);
+    }
+
+    $("turnN").textContent = state.turn;
+    $("blockN").textContent = SYSTEM.length + 1 + state.obs.length;
+    $("stableN").textContent = SYSTEM.length;
+    $("turnLabel").textContent = "第 " + state.turn + " 轮 · 第 " + (state.turn + 1) + " 次推理前";
+    $("verdict").textContent = TURNS[state.turn].note;
+    $("advance").disabled = state.turn >= 3;
+  }
+
+  function esc(s) {
+    return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  }
+
+  // Free play: append the default observation for the current turn.
+  $("advance").addEventListener("click", function () {
+    if (state.turn >= 3) return;
+    var next = TURNS[state.turn + 1];
+    if (next.new) state.obs.push(next.new);
+    state.turn += 1;
+    state.scenario = null;
+    render();
+  });
+
+  $("reset").addEventListener("click", function () {
+    state = { turn: 0, obs: [], scenario: null, step: 0 };
+    renderSteps();
+    render();
+  });
+
+  function renderSteps() {
+    var box = $("steps");
+    box.innerHTML = "";
+    if (!state.scenario) return;
+    var steps = SCENARIOS[state.scenario].steps;
+    steps.forEach(function (s, i) {
+      var b = document.createElement("button");
+      b.className = "stepbtn" + (i < state.step ? " active" : "");
+      b.textContent = (i < state.step ? "✓ " : "") + s.label;
+      b.disabled = i !== state.step;
+      b.addEventListener("click", function () { applyStep(i); });
+      box.appendChild(b);
+    });
+  }
+
+  function applyStep(i) {
+    var sc = SCENARIOS[state.scenario];
+    var s = sc.steps[i];
+    state.turn = s.t;
+    // Rebuild observations up to this turn using the scenario's overrides.
+    state.obs = [];
+    for (var k = 1; k <= s.t; k++) {
+      var ov = sc.steps[k] && sc.steps[k].override;
+      state.obs.push(ov || TURNS[k].new);
+    }
+    state.step = i + 1;
+    renderSteps();
+    render();
+  }
+
+  Array.prototype.forEach.call($("tabs").querySelectorAll("button"), function (btn) {
+    btn.addEventListener("click", function () {
+      Array.prototype.forEach.call($("tabs").querySelectorAll("button"), function (b) { b.classList.remove("active"); });
+      btn.classList.add("active");
+      state.scenario = btn.getAttribute("data-s");
+      state.step = 0;
+      $("scenario").textContent = SCENARIOS[state.scenario].text;
+      renderSteps();
+    });
+  });
+
+  render();
+})();
+</script>
+</body>
+</html>
